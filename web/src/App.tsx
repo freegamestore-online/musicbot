@@ -1,3 +1,4 @@
+import { GameShell, GameTopbar, GameButton, useSound } from "@freegamestore/games";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { Note, WaveType } from "./types";
 import { levels } from "./engine/levels";
@@ -23,7 +24,8 @@ function saveCompleted(set: Set<number>) {
   localStorage.setItem("musicbot_completed", JSON.stringify([...set]));
 }
 
-export default function App() {
+function GameContent() {
+  const { muted } = useSound();
   const [levelId, setLevelId] = useState(1);
   const [code, setCode] = useState(levels[0]?.starterCode ?? "");
   const [notes, setNotes] = useState<Note[]>([]);
@@ -38,6 +40,7 @@ export default function App() {
   const [completedLevels, setCompletedLevels] = useState(loadCompleted);
 
   const playerRef = useRef<MusicPlayer | null>(null);
+  useEffect(() => { playerRef.current?.setMuted(muted); }, [muted]);
 
   const level = useMemo(
     () => levels.find((l) => l.id === levelId) ?? levels[0]!,
@@ -112,6 +115,7 @@ export default function App() {
     }
 
     try {
+      playerRef.current.setMuted(muted);
       await playerRef.current.playSequence(
         result.notes,
         result.tempo,
@@ -159,77 +163,22 @@ export default function App() {
       });
       setTimeout(() => setShowComplete(true), 400);
     }
-  }, [code, level, handleReset]);
+  }, [code, level, handleReset, muted]);
 
   const hasNextLevel = levels.some((l) => l.id === levelId + 1);
 
   return (
     <div
       style={{
-        height: "100dvh",
+        height: "100%",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
       }}
     >
-      {/* Header */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "8px 16px",
-          borderBottom: "1px solid var(--line)",
-          background: "var(--panel)",
-          gap: 12,
-          flexShrink: 0,
-        }}
-      >
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 20,
-            fontWeight: 800,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <span style={{ fontSize: 22 }}>{"🎵"}</span>
-          <span>MusicBot</span>
-        </h1>
-
-        <div style={{ flex: 1 }} />
-
-        <a
-          href="https://freegamestore.online"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            fontSize: 12,
-            color: "var(--muted)",
-            textDecoration: "none",
-            marginRight: 8,
-          }}
-        >
-          FreeGameStore
-        </a>
-
-        <button
-          onClick={() => setShowLevels(true)}
-          style={{
-            padding: "4px 12px",
-            borderRadius: 6,
-            border: "1px solid var(--line-strong)",
-            background: "var(--paper)",
-            color: "var(--ink)",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
-          Levels
-        </button>
-      </header>
+      <div className="shrink-0">
+        <GameTopbar title="MusicBot" actions={<GameButton size="sm" variant="ghost" onClick={() => setShowLevels(true)}>Levels</GameButton>} />
+      </div>
 
       {/* Level info bar */}
       <div
@@ -350,4 +299,8 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  return <GameShell><GameContent /></GameShell>;
 }

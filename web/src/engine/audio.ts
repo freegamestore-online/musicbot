@@ -42,6 +42,16 @@ export type ProgressCallback = (beatPosition: number) => void;
 
 export class MusicPlayer {
   private ctx: AudioContext | null = null;
+  private masterGain: GainNode | null = null;
+  private muted = true;
+  private volume = 0.5;
+
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(muted ? 0 : this.volume, this.ctx.currentTime);
+    }
+  }
   private scheduledNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
   private progressTimer: ReturnType<typeof setInterval> | null = null;
   private totalDuration = 0;
@@ -91,7 +101,9 @@ export class MusicPlayer {
 
     // Master gain
     const masterGain = ctx.createGain();
-    masterGain.gain.value = Math.max(0, Math.min(1, volume));
+    this.volume = Math.max(0, Math.min(1, volume));
+    this.masterGain = masterGain;
+    masterGain.gain.value = this.muted ? 0 : this.volume;
     masterGain.connect(ctx.destination);
 
     // Schedule each note
@@ -161,6 +173,8 @@ export class MusicPlayer {
       }
     }
     this.scheduledNodes = [];
+    this.masterGain?.disconnect();
+    this.masterGain = null;
   }
 
   private clearProgressTimer(): void {
