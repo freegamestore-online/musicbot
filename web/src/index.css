@@ -155,3 +155,6 @@ body {
 .playback-cursor--playing {
   animation: pulse-cursor 1s ease infinite;
 }
+
+/* Legacy game components share the canonical paper surface. */
+:root { --bg: var(--paper); }
