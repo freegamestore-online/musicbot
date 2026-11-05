@@ -293,6 +293,14 @@ describe("MusicBot interpreter", () => {
       expect(result.error).not.toBeNull();
       expect(result.error).toContain("2000");
     });
+
+    it("stops deeply nested repeats that play no notes instead of hanging", () => {
+      // 100^5 = 10 billion rests: no note limit applies, so only a step limit ends it
+      const open = "repeat(100) {\n".repeat(5);
+      const close = "}\n".repeat(5);
+      const result = interpret(open + "rest(1)\n" + close + 'play("C4")');
+      expect(result.error).toContain("Too many steps");
+    });
   });
 
   // ── Time accumulation ───────────────────────────────────────

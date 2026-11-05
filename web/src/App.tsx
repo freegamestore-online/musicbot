@@ -71,7 +71,9 @@ function GameContent() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [playbackPosition, setPlaybackPosition] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [tempo, setTempo] = useState(120);
+  const [tempo, setTempo] = useState(
+    () => levels.find((l) => l.id === levelId)?.tempo ?? 120,
+  );
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [errorLine, setErrorLine] = useState(0);
@@ -81,6 +83,7 @@ function GameContent() {
   const [completedLevels, setCompletedLevels] = useState(loadCompleted);
 
   const playerRef = useRef<MusicPlayer | null>(null);
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => { playerRef.current?.setMuted(muted); }, [muted]);
 
   const level = useMemo(
@@ -96,6 +99,7 @@ function GameContent() {
   useEffect(() => {
     return () => {
       playerRef.current?.dispose();
+      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
     };
   }, []);
 
@@ -107,6 +111,8 @@ function GameContent() {
 
   const handleReset = useCallback(() => {
     handleStop();
+    if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+    completeTimerRef.current = null;
     setNotes([]);
     setMessage("");
     setIsError(false);
@@ -195,7 +201,7 @@ function GameContent() {
         saveCompleted(next);
         return next;
       });
-      setTimeout(() => setShowComplete(true), 400);
+      completeTimerRef.current = setTimeout(() => setShowComplete(true), 400);
     } else if (level.targetNotes.length > 0) {
       setMessage(
         "Not quite right. Compare your notes with the target (dim blocks).",
@@ -212,7 +218,7 @@ function GameContent() {
         saveCompleted(next);
         return next;
       });
-      setTimeout(() => setShowComplete(true), 400);
+      completeTimerRef.current = setTimeout(() => setShowComplete(true), 400);
     }
   }, [code, level, handleReset, muted]);
 

@@ -159,13 +159,19 @@ export function interpret(code: string): InterpreterResult {
   const notes: Note[] = [];
   let idx = 0;
 
-  // Guard against runaway note generation
+  // Guard against runaway note generation, and against nested repeats that
+  // loop for ages without producing notes
   const MAX_NOTES = 2000;
+  const MAX_STEPS = 100_000;
+  let steps = 0;
 
   function executeBlock(endOnBrace: boolean): string | null {
     while (idx < commands.length) {
       if (notes.length > MAX_NOTES) {
         return `Too many notes (max ${MAX_NOTES}). Simplify your code.`;
+      }
+      if (++steps > MAX_STEPS) {
+        return `Too many steps (max ${MAX_STEPS}). Use fewer or smaller repeats.`;
       }
 
       const cmd = commands[idx]!;
