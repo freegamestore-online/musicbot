@@ -183,6 +183,7 @@ export function interpret(code: string): InterpreterResult {
           pitch: cmd.args[0] as string,
           duration: cmd.args[1] as number,
           time: currentTime,
+          line: cmd.line,
         });
         currentTime += cmd.args[1] as number;
         idx++;

@@ -6,6 +6,8 @@ export interface Note {
   duration: number;
   /** Absolute start time in beats */
   time: number;
+  /** Source line that produced the note (player code only) */
+  line?: number;
 }
 
 /** A parsed command from the user's code */

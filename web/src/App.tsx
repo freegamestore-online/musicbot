@@ -24,16 +24,57 @@ function saveCompleted(set: Set<number>) {
   localStorage.setItem("musicbot_completed", JSON.stringify([...set]));
 }
 
+function loadSavedCode(): Record<number, string> {
+  try {
+    const raw = localStorage.getItem("musicbot_code");
+    if (raw) return JSON.parse(raw) as Record<number, string>;
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function loadCode(levelId: number): string {
+  return (
+    loadSavedCode()[levelId] ??
+    levels.find((l) => l.id === levelId)?.starterCode ??
+    ""
+  );
+}
+
+function saveCode(levelId: number, code: string) {
+  try {
+    localStorage.setItem(
+      "musicbot_code",
+      JSON.stringify({ ...loadSavedCode(), [levelId]: code }),
+    );
+    localStorage.setItem("musicbot_level", String(levelId));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadLevel(): number {
+  try {
+    const id = Number(localStorage.getItem("musicbot_level"));
+    if (levels.some((l) => l.id === id)) return id;
+  } catch {
+    /* ignore */
+  }
+  return 1;
+}
+
 function GameContent() {
   const { muted } = useSound();
-  const [levelId, setLevelId] = useState(1);
-  const [code, setCode] = useState(levels[0]?.starterCode ?? "");
+  const [levelId, setLevelId] = useState(loadLevel);
+  const [code, setCode] = useState(() => loadCode(levelId));
   const [notes, setNotes] = useState<Note[]>([]);
   const [playbackPosition, setPlaybackPosition] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(120);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [errorLine, setErrorLine] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showLevels, setShowLevels] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
@@ -46,6 +87,10 @@ function GameContent() {
     () => levels.find((l) => l.id === levelId) ?? levels[0]!,
     [levelId],
   );
+
+  useEffect(() => {
+    saveCode(levelId, code);
+  }, [levelId, code]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -65,6 +110,7 @@ function GameContent() {
     setNotes([]);
     setMessage("");
     setIsError(false);
+    setErrorLine(0);
     setIsSuccess(false);
     setShowComplete(false);
     setPlaybackPosition(-1);
@@ -75,7 +121,7 @@ function GameContent() {
       handleReset();
       setLevelId(id);
       const newLevel = levels.find((l) => l.id === id);
-      setCode(newLevel?.starterCode ?? "");
+      setCode(loadCode(id));
       setTempo(newLevel?.tempo ?? 120);
       setShowLevels(false);
     },
@@ -91,6 +137,7 @@ function GameContent() {
     if (result.error) {
       setMessage(result.error);
       setIsError(true);
+      setErrorLine(result.errorLine);
       setNotes(result.notes);
       return;
     }
@@ -114,9 +161,10 @@ function GameContent() {
       playerRef.current = new MusicPlayer();
     }
 
+    let completed = true;
     try {
       playerRef.current.setMuted(muted);
-      await playerRef.current.playSequence(
+      completed = await playerRef.current.playSequence(
         result.notes,
         result.tempo,
         settings.instrument as WaveType,
@@ -128,6 +176,9 @@ function GameContent() {
     } catch {
       // Audio context may fail in some environments
     }
+
+    // Stopped, or superseded by a newer run
+    if (!completed) return;
 
     setIsPlaying(false);
     setPlaybackPosition(-1);
@@ -167,6 +218,13 @@ function GameContent() {
 
   const hasNextLevel = levels.some((l) => l.id === levelId + 1);
 
+  const playingLine = isPlaying
+    ? notes.find(
+        (n) =>
+          playbackPosition >= n.time && playbackPosition < n.time + n.duration,
+      )?.line ?? 0
+    : 0;
+
   return (
     <div
       style={{
@@ -190,6 +248,8 @@ function GameContent() {
           gap: 12,
           fontSize: 13,
           flexShrink: 0,
+          flexWrap: "wrap",
+          rowGap: 2,
         }}
       >
         <span style={{ fontWeight: 700, color: "var(--accent)" }}>
@@ -205,28 +265,16 @@ function GameContent() {
             fontStyle: "italic",
           }}
         >
-          {level.targetDescription}
+          {level.targetDescription} · Hint: {level.hint}
         </span>
       </div>
 
-      {/* Main split layout */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          minHeight: 0,
-          overflow: "hidden",
-        }}
-      >
-        {/* Left: Piano roll (55%) */}
+      {/* Stacked on phones (stage on top), side by side from md up */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+        {/* Piano roll */}
         <div
-          style={{
-            flex: "0 0 55%",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            background: "#1e1e2e",
-          }}
+          className="flex shrink-0 basis-[40%] flex-col overflow-hidden md:basis-[55%]"
+          style={{ background: "#1e1e2e" }}
         >
           <PianoRoll
             notes={notes}
@@ -236,18 +284,9 @@ function GameContent() {
           />
         </div>
 
-        {/* Right: Editor + Controls (45%) */}
+        {/* Editor + Controls */}
         <div
-          style={{
-            flex: "0 0 45%",
-            display: "flex",
-            flexDirection: "column",
-            borderLeft: "1px solid var(--line)",
-            padding: 12,
-            gap: 10,
-            minHeight: 0,
-            overflow: "hidden",
-          }}
+          className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto border-t border-[var(--line)] p-3 md:border-t-0 md:border-l"
         >
           <GameControls
             onRun={() => void handleRun()}
@@ -264,9 +303,10 @@ function GameContent() {
           <CodeEditor
             code={code}
             onChange={setCode}
-            activeLine={0}
+            activeLine={errorLine || playingLine}
             availableCommands={level.availableCommands}
             disabled={isPlaying}
+            hasError={errorLine > 0}
           />
         </div>
       </div>

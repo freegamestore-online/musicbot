@@ -73,3 +73,26 @@ describe('platform mute during music playback', () => {
     player.dispose();
   });
 });
+
+describe('cancellable playback', () => {
+  it('resolves false when stopped and true when playback runs to the end', async () => {
+    const player = new MusicPlayer();
+    const stopped = player.playSequence(notes, 120);
+    player.stop();
+    await expect(stopped).resolves.toBe(false);
+    const finished = player.playSequence(notes, 120);
+    await vi.runAllTimersAsync();
+    await expect(finished).resolves.toBe(true);
+    player.dispose();
+  });
+
+  it('lets a new run cancel the previous one', async () => {
+    const player = new MusicPlayer();
+    const first = player.playSequence(notes, 120);
+    const second = player.playSequence(notes, 120);
+    await expect(first).resolves.toBe(false);
+    await vi.runAllTimersAsync();
+    await expect(second).resolves.toBe(true);
+    player.dispose();
+  });
+});

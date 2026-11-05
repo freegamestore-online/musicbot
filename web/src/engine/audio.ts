@@ -54,6 +54,9 @@ export class MusicPlayer {
   }
   private scheduledNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
   private progressTimer: ReturnType<typeof setInterval> | null = null;
+  private endTimer: ReturnType<typeof setTimeout> | null = null;
+  private resolveEnd: ((completed: boolean) => void) | null = null;
+  private generation = 0;
   private totalDuration = 0;
 
   private ensureContext(): AudioContext {
@@ -70,7 +73,7 @@ export class MusicPlayer {
    * @param waveType - Oscillator type
    * @param volume - Master volume 0-1
    * @param onProgress - Called with current beat position during playback
-   * @returns Promise that resolves when playback ends
+   * @returns Promise that resolves true when playback ends, false if stopped first
    */
   async playSequence(
     notes: Note[],
@@ -78,14 +81,16 @@ export class MusicPlayer {
     waveType: WaveType = "sine",
     volume: number = 0.5,
     onProgress?: ProgressCallback,
-  ): Promise<void> {
+  ): Promise<boolean> {
     this.stop();
+    const generation = this.generation;
 
-    if (notes.length === 0) return;
+    if (notes.length === 0) return true;
 
     const ctx = this.ensureContext();
     if (ctx.state === "suspended") {
       await ctx.resume();
+      if (generation !== this.generation) return false;
     }
 
     const beatDuration = 60 / tempo; // seconds per beat
@@ -156,14 +161,24 @@ export class MusicPlayer {
     // Wait for playback to finish
     const totalSec = maxEnd * beatDuration;
     return new Promise((resolve) => {
-      setTimeout(() => {
+      this.resolveEnd = resolve;
+      this.endTimer = setTimeout(() => {
+        this.endTimer = null;
+        this.resolveEnd = null;
         this.clearProgressTimer();
-        resolve();
+        resolve(true);
       }, totalSec * 1000 + 100);
     });
   }
 
   stop(): void {
+    this.generation++;
+    if (this.endTimer !== null) {
+      clearTimeout(this.endTimer);
+      this.endTimer = null;
+    }
+    this.resolveEnd?.(false);
+    this.resolveEnd = null;
     this.clearProgressTimer();
     for (const { osc } of this.scheduledNodes) {
       try {
