@@ -12,13 +12,19 @@ interface CodeEditorProps {
 
 // --- Syntax highlighting ---
 
-const KEYWORDS = /\b(repeat)\b/g;
-const PLAY_REST = /\b(play|rest)\b/g;
-const SETTINGS = /\b(instrument|tempo|volume)\b/g;
-const NOTE_STRINGS = /(&quot;[A-G][#b]?\d&quot;|"[A-G][#b]?\d")/g;
-const WAVE_STRINGS =
-  /(&quot;(?:sine|square|triangle|sawtooth)&quot;|"(?:sine|square|triangle|sawtooth)")/g;
-const NUMBERS = /\b(\d+\.?\d*)\b/g;
+// One pass over the escaped line, so no rule can match markup another rule
+// inserted. Group order = colour order below. Lines are escaped first, so
+// double quotes only ever appear as &quot;.
+const TOKENS =
+  /(&quot;[A-G][#b]?\d&quot;)|(&quot;(?:sine|square|triangle|sawtooth)&quot;)|\b(repeat)\b|\b(play|rest)\b|\b(instrument|tempo|volume)\b|\b(\d+\.?\d*)\b/g;
+const TOKEN_COLORS = [
+  "#a6e3a1", // note strings: green
+  "#a6e3a1", // wave strings: green
+  "#cba6f7", // keywords: purple
+  "#f38ba8", // play/rest: red
+  "#89b4fa", // settings: blue
+  "#fab387", // numbers: orange
+];
 
 function escapeHtml(text: string): string {
   return text
@@ -28,7 +34,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function highlightCode(code: string): string {
+export function highlightCode(code: string): string {
   return code
     .split("\n")
     .map((rawLine) => {
@@ -52,13 +58,11 @@ function highlightCode(code: string): string {
 }
 
 function highlightExpression(line: string): string {
-  return line
-    .replace(NOTE_STRINGS, '<span style="color:#a6e3a1">$1</span>')
-    .replace(WAVE_STRINGS, '<span style="color:#a6e3a1">$1</span>')
-    .replace(KEYWORDS, '<span style="color:#cba6f7">$1</span>')
-    .replace(PLAY_REST, '<span style="color:#f38ba8">$1</span>')
-    .replace(SETTINGS, '<span style="color:#89b4fa">$1</span>')
-    .replace(NUMBERS, '<span style="color:#fab387">$1</span>');
+  return line.replace(TOKENS, (match, ...groups: unknown[]) => {
+    // Exactly one capture group matched; its index picks the colour.
+    const i = groups.findIndex((g) => g !== undefined);
+    return `<span style="color:${TOKEN_COLORS[i]}">${match}</span>`;
+  });
 }
 
 export default function CodeEditor({
