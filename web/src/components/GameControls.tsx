@@ -39,7 +39,7 @@ export default function GameControls({
               padding: "6px 16px",
               borderRadius: 6,
               border: "none",
-              background: "var(--error)",
+              background: "var(--danger)",
               color: "#fff",
               fontWeight: 600,
               fontSize: 14,
@@ -120,13 +120,13 @@ export default function GameControls({
                 ? "rgba(5, 150, 105, 0.1)"
                 : "var(--panel)",
             color: isError
-              ? "var(--error)"
+              ? "var(--danger)"
               : isSuccess
                 ? "var(--success)"
                 : "var(--ink)",
             border: `1px solid ${
               isError
-                ? "var(--error)"
+                ? "var(--danger)"
                 : isSuccess
                   ? "var(--success)"
                   : "var(--line)"
