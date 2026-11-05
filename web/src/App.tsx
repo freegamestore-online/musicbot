@@ -119,7 +119,6 @@ function GameContent() {
     setErrorLine(0);
     setIsSuccess(false);
     setShowComplete(false);
-    setPlaybackPosition(-1);
   }, [handleStop]);
 
   const handleLevelChange = useCallback(
@@ -189,38 +188,24 @@ function GameContent() {
     setIsPlaying(false);
     setPlaybackPosition(-1);
 
-    // Check level completion
-    const matched = checkMatch(result.notes, level.targetNotes);
-    if (matched) {
-      setMessage("Melody matches! Well done!");
-      setIsSuccess(true);
-      setIsError(false);
-      setCompletedLevels((prev) => {
-        const next = new Set(prev);
-        next.add(level.id);
-        saveCompleted(next);
-        return next;
-      });
-      completeTimerRef.current = setTimeout(() => setShowComplete(true), 400);
-    } else if (level.targetNotes.length > 0) {
+    // Check level completion (freestyle levels have no target and always pass)
+    if (!checkMatch(result.notes, level.targetNotes)) {
       setMessage(
         "Not quite right. Compare your notes with the target (dim blocks).",
       );
       setIsError(true);
       setIsSuccess(false);
-    } else {
-      // Freestyle — always succeeds
-      setMessage("Nice composition!");
-      setIsSuccess(true);
-      setCompletedLevels((prev) => {
-        const next = new Set(prev);
-        next.add(level.id);
-        saveCompleted(next);
-        return next;
-      });
-      completeTimerRef.current = setTimeout(() => setShowComplete(true), 400);
+      return;
     }
-  }, [code, level, handleReset, muted]);
+
+    setMessage("Melody matches! Well done!");
+    setIsSuccess(true);
+    setIsError(false);
+    const next = new Set(completedLevels).add(level.id);
+    saveCompleted(next);
+    setCompletedLevels(next);
+    completeTimerRef.current = setTimeout(() => setShowComplete(true), 400);
+  }, [code, level, handleReset, muted, completedLevels]);
 
   const hasNextLevel = levels.some((l) => l.id === levelId + 1);
 

@@ -50,6 +50,7 @@ describe("success modal timer (#2)", () => {
       vi.advanceTimersByTime(500);
     });
     expect(container.textContent).toContain("Level Complete!");
+    expect(localStorage.getItem("musicbot_completed")).toBe("[1]");
   });
 
   it("does not appear when Reset is pressed right after a win", async () => {

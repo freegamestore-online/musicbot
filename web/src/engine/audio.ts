@@ -199,10 +199,6 @@ export class MusicPlayer {
     }
   }
 
-  get duration(): number {
-    return this.totalDuration;
-  }
-
   dispose(): void {
     this.stop();
     if (this.ctx && this.ctx.state !== "closed") {
